@@ -23,4 +23,19 @@ grep -vE "[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}" UFO-Dic-2014.tsv
 awk -F"[\t]" '/blue/ {print $3 $1}' ufo/UFO-Nov-2014.tsv 
 awk '{sum += $1} END {print "SUMA: "sum }' numbers.dat
 awk -F',' '{sum1 += $1, sum2 += $2} END {print sum1, sum2}' numbers.dat  #tiene error
-awk -F"[\t]" '/minutes/ {print $5}' UFO-Nov-2014.tsv | awk '{sum += $1/60} END {print sum " horas"}
+awk -F"[\t]" '/minutes/ {print $5}' UFO-Nov-2014.tsv | awk '{sum += $1/60} END {print sum " horas"}'
+awk 'BEGIN{ FS="\t"};{if(NF !=7) {print >> "UFO_fixme.tsv"} else {print >> "UFO_OK.tsv"} }' UFO-Nov-2014.tsv
+awk 'END { print NR }' UFO-Nov-2014.tsv
+awk -F"[\t]" -f minutes_to_hours.awk UFO_OK.tsv
+
+## sed
+sed [banderas] comando/patron/[reemplazo]/[modificador] [archivo]
+sed 's/foo/bar/' data3.txt
+sed '3!s/foo/bar/' data3.txt
+sed '/123/s/foo/bar/' data3.txt
+
+# Columnar, sperarda por '|', muchas columnas, muy peado (~400Mb) y ademas tiene informacion confidencial, 
+# tiene un id unico Sustituir id unico, agregarle un nuevo id de preferencia numerico,
+# seleccionar solo unas columnas y guardarlo en un nuevo archivo que podamos subir en R
+< UFO-Nov-2014.tsv awk -F"\t" 'BEGIN{OFS="|"} !/Date/ {print $3, $4, $5}' | sort -R | awk -F"|" '{print NR "|" $0}' > limpios.psv
+
