@@ -1,0 +1,1 @@
+curl https://www.gutenberg.org/files/35/35-0.txt | tail -n 3562 | head -n 3193 | tr -s '[:upper:]' '[:lower:]' | tr -s ' ' '\n' | tr -d '[:punct:]+' | sort | uniq -c | sort -n -r -k 1 | head -n 10
