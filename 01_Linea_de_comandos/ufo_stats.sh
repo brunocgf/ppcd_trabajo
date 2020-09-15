@@ -1,3 +1,5 @@
+#!/bin/bash
+
 awk -F"|" '/minutes/ {split($6,a," "); print a[1]}' todos.psv |
 grep -oE '^[[:digit:]]+$' |
 awk 'BEGIN{a = 100}{if ($1<a) a=$1 fi} END{print "min: " a " minutos"}'
