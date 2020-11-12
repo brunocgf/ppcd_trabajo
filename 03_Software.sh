@@ -19,6 +19,5 @@ cd tsp
 touch __init__.py # Modulo de python
 git add tsp/
 git add .gitignore .python-version LICENSE
-pyenv virtualenv 3.7.9 tst
-
+pyenv virtualenv 3.7.3 tsp
 
