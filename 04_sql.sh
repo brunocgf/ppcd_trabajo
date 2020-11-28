@@ -20,3 +20,51 @@ grant all privileges on database tsp to tsp
 # conectarte a la base de datos
 psql -U tsp -d tsp -h 0.0.0.0 -W
 select curret_user;
+
+psql -U tsp -d tsp -h 0.0.0.0 -p 5432
+psql postgresql://tsp:some_password@0.0.0.0:5432/tsp
+
+#.pgpass
+	# host:port:db:username:password
+	0.0.0.0:5432:tsp:tsp:some_password
+
+chmod 0600 .pgpass
+
+# Una vez que se tiene el ppgpass
+psql -U tsp -h 0.0.0.0 -d tsp
+psql postgresql://tsp@0.0.0.0:5432/tsp
+
+# .pg_service.conf
+# todas las bases de datos que se quieren utilizar
+	[tsp]
+	host=0.0.0.0
+	port=5432
+	user=tsp
+	db=tsp
+
+#Una vez que se tiene pg_service
+psql service=tsp
+
+#Instalar driver de posgres
+sudo apt-get install libpq-dev
+
+# Python
+import psycopg2
+DB_URL = "postgresql://tsp@0.0.0.0/tsp"
+with psycopg2.connect(DB_URL) as conn:
+	cursor = conn.cursor()
+
+## Ejemplo berka
+sudo su postgres
+psql
+create database berka;
+create role berka login;
+alter role berka with encrypted password 'some_password';
+grant all privileges on database berka to berka;
+
+# Secciones (esquemas): raw -> clean -> semantic
+# RAW
+# Cada archivo -> tabla con el mismo nombre de archivo
+# No cambio nombre de columnas, no limpio, solo se copa a la BD
+# Los tipos de columnas son VARCHAR (STRINGS)
+# NOTA: Si los archivos estan muy sucios (faltan columnas), crear una sola columna
