@@ -51,6 +51,7 @@ sudo apt-get install libpq-dev
 # Python
 import psycopg2
 DB_URL = "postgresql://tsp@0.0.0.0/tsp"
+DB_URL = "postgresql://?service=tsp"
 with psycopg2.connect(DB_URL) as conn:
 	cursor = conn.cursor()
 
@@ -66,5 +67,18 @@ grant all privileges on database berka to berka;
 # RAW
 # Cada archivo -> tabla con el mismo nombre de archivo
 # No cambio nombre de columnas, no limpio, solo se copa a la BD
-# Los tipos de columnas son VARCHAR (STRINGS)
+# Los tipos de columnas son VARCHAR (STRINGS)p
 # NOTA: Si los archivos estan muy sucios (faltan columnas), crear una sola columna
+\dn #nombre de esquemas
+create schema raw;
+create schema clean;
+create schema semantic;
+
+\dt #nombre de tablas en esquemas
+
+# Una vez copiado los archivos
+\i sql/create_raw_tables.sql
+\dt+ raw. 
+
+# Copiar tablas
+\copy raw.account from 'data/berka/account.asc' with csv header delimiter ';';
