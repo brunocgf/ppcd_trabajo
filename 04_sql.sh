@@ -63,7 +63,8 @@ create role berka login;
 alter role berka with encrypted password 'some_password';
 grant all privileges on database berka to berka;
 
-# Secciones (esquemas): raw -> clean -> semantic
+# Secciones (esquemas): raw -> clean -> semantic --> features -> dwh
+
 # RAW
 # Cada archivo -> tabla con el mismo nombre de archivo
 # No cambio nombre de columnas, no limpio, solo se copa a la BD
@@ -82,3 +83,17 @@ create schema semantic;
 
 # Copiar tablas
 \copy raw.account from 'data/berka/account.asc' with csv header delimiter ';';
+
+for data_file in *.asc
+do
+psql service=berka -c "\copy raw.${data_file%.*} from ${data_file} with csv header delimiter ';';"
+done
+
+# CLEAN
+# Unificar tablas de raw que sean del mismo tipo
+# Arreglar los tipos
+# NO hacemos imputaciones, agregaciones, cambio de datos, no transformamos
+# Nombre de la tabla: plural
+# Quitar "_id" y mantener el identificador en singular (controversial)
+# ej: trans -> "transations", "trans_id" -> "transaction", "client_id" -> "client"
+# Arreglar variables categóricas, poner buenos nombres, etc.

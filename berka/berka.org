@@ -1,0 +1,1336 @@
+#+TITLE: Berka
+#+AUTHOR: Adolfo De Unánue
+#+EMAIL: unanue@itam.mx
+#+PROPERTY:  header-args:sql :engine postgresql :dbhost 0.0.0.0 :dbport '5555' :dbuser berka :database berka :dbpassword some_password :cmdline -q
+
+* Conjunto de datos Berka
+** Introducción
+:PROPERTIES:
+:CUSTOM_ID: intro
+:END:
+
+Para algunos de los ejercicios de esta sección usaremos los datos
+conocidos como *berka*. Esta base de datos fue liberada por un
+banco de Europa Oriental, para el *PKDD'99 Discovery Challenge*.
+
+Puedes descargar una copia de la base [[https://my.pcloud.com/publink/show?code=XZKz6QkZWc0QR9iwXchVJP84XMdiGmSVoBTk][aquí]]
+
+** Descripción de los datos
+:PROPERTIES:
+:CUSTOM_ID: description
+:END:
+
+Cada cuenta tiene tanto características estáticas (eg. fecha de
+creación) , contenidas en la relación =account=, como dinámicas (e.g. pagos
+debitados o acreditados, balances) dados en las relaciones
+=permanent_order= y =transactions=.
+
+La relación =client= describe las características de la persona que
+puede manipular esas cuentas. Un cliente puede tener una  o más
+cuentas, pero también se puede dar el caso que muchos clientes pueden
+manipular una cuenta; los clientes y  cuentas están relacionadas a
+través de la relación  =disposition=.
+
+Las relaciones =loan= y =credit_card= describen algunos de los
+servicios que el banco ofrece a sus clientes:
+   - Varias tarjetas de crédito pueden ser asignadas a una cuenta.
+   - Hay un máximo de un préstamo por cuenta.
+
+La relación =demographic_data= contiene información pública sobre los
+distritos (e.g. tasa de desempleo).
+
+Pueden consultar más información [[https://sorry.vse.cz/~berka/challenge/pkdd1999/berka.htm][aquí]]
+
+** Diagrama entidad-relación
+
+#+begin_src  plantuml :file ../images/berka.png :results none
+' hide the spot
+hide circle
+
+' avoid problems with angled crows feet
+skinparam linetype ortho
+
+entity "account" as account {
+  *account_id
+  *district_id
+  date
+  frequency
+}
+
+entity "client" as client {
+        *client_id
+        birth_number
+        *district_id
+}
+
+
+entity "loan" as loan {
+  loan_id
+  *account_id
+  date
+  amount
+  duration
+  payments
+  status
+}
+
+
+entity "transaction" as transaction {
+  trans_id
+  *account_id
+  date
+  account_id
+  type
+  operation
+  amount
+  balance
+  k_symbol
+  bank
+  account
+}
+
+entity "permanent order" as permanent_order {
+  order_id
+  *account_id
+  account_to
+  amount
+  k_symbol
+}
+
+entity "credit card" as credit_card {
+  card_id
+  *disp_id
+  type
+  issued
+}
+
+entity "disposition" as disposition {
+        *disp_id
+        *client_id
+        *account_id
+        type
+}
+
+entity "demographic" as demograph {
+  *A1 (district_id)
+  A2
+  A3
+  A4
+  A5
+  A6
+  A7
+  A8
+  A10
+  A11
+  A12
+  A13
+  A14
+  A15
+  A16
+}
+
+
+credit_card -- disposition
+client -- disposition
+client -- demograph
+account -- loan
+account -- permanent_order
+account -- transaction
+account -- credit_card
+account -- disposition
+account -- demograph
+#+end_src
+
+#+CAPTION: Diagrama de entidad-relación(ERD) para la base de datos =berka=. No se muestran todos los atributos de las relaciones.
+#+ATTR_ORG: :width 800 :height 800
+#+ATTR_HTML: :width 800px :height 600px
+#+ATTR_LATEX: :height 5cm :width 8cm
+[[file:../images/berka.png]]
+
+
+
+** Modelo de datos
+:PROPERTIES:
+:CUSTOM_ID: tables
+:END:
+
+*** Account                                                        :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =account=, contenida en el archivo =account.asc=.
+| item        | meaning                             | remark                                                      |
+|-------------+-------------------------------------+-------------------------------------------------------------|
+| =account_id=  | identification of the account       |                                                             |
+| =district_id= | location of the branch              |                                                             |
+| =date=        | date of creating of the account     | in the form YYMMDD                                          |
+| =frequency=   | frequency of issuance of statements | =POPLATEK MESICNE= stands for monthly issuance                |
+|             |                                     | =POPLATEK TYDNE=   stands for weekly issuance                 |
+|             |                                     | POPLATEK POP OBRATU stands for issuance after transaction   |
+
+*** Client                                                         :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =client=, contenida en el archivo =client.asc=.
+| item           | meaning                         | remark                                           |
+|----------------+---------------------------------+--------------------------------------------------|
+| =client_id=    | record identifier               |                                                  |
+| =birth_number= | number identification of client | the number is in the form =YYMMDD= for men,      |
+|                |                                 | the number is in the form =YYMM+50DD= for women, |
+|                |                                 | where YYMMDD is the date of birth                |
+| =district_id=  | address of the client           |                                                  |
+
+*** Disposition                                                    :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =disposition=, contenida en el archivo =disp.asc=.
+| item         | meaning                          | remark                         |
+|--------------+----------------------------------+--------------------------------|
+| =disp_id=    | record identifier                |                                |
+| =client_id=  | identification of a client       |                                |
+| =account_id= | identification of an account     |                                |
+| =type=       | type of disposition (owner/user) | only owner can issue permanent |
+|              |                                  | orders and ask for a loan      |
+
+*** Permanent Order                                                :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =order=, contenida en el archivo =order.asc=.
+| item         | meaning                          | remark                                  |
+|--------------+----------------------------------+-----------------------------------------|
+| =order_id=   | record identifier                |                                         |
+| =account_id= | account, the order is issued for |                                         |
+| =bank_to=    | bank to bank of the recipient    | each bank has unique two-letter code    |
+| =account_to= | account of the recipient         |                                         |
+| =amount=     | debited amount                   |                                         |
+| =K_symbol=   | characterization of the payment  | "POJISTNE" stands for insurance payment |
+|              |                                  | "SIPO" stands for household             |
+|              |                                  | "LEASING" stands for leasing            |
+|              |                                  | "UVER" stands for loan payment          |
+
+*** Transaction                                                    :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =transcations=, contenida en el archivo =tran.asc=.
+| item         | meaning                                 | remark                                             |
+|--------------+-----------------------------------------+----------------------------------------------------|
+| =trans_id=   | record identifier                       |                                                    |
+| =account_id= | account, the transation deals with      |                                                    |
+| =date=       | date of transaction  in the form YYMMDD |                                                    |
+| =type=       | +/- transaction                         | "PRIJEM" stands for credit                         |
+|              |                                         | "VYDAJ" stands for withdrawal                      |
+| =operation=  | mode of transaction                     | "VYBER KARTOU" credit card withdrawal              |
+|              |                                         | "VKLAD" credit in cash "PREVOD Z UCTU"             |
+|              |                                         | collection from another bank "VYBER"               |
+|              |                                         | withdrawal in cash "PREVOD NA UCET"                |
+|              |                                         | remittance to another bank                         |
+| =amount=     | amount of money                         |                                                    |
+| =balance=    | balance after transaction               |                                                    |
+| =k_symbol=   | characterization of the transaction     | "POJISTNE" stands for insurrance payment           |
+|              |                                         | "SLUZBY" stands for payment for statement          |
+|              |                                         | "UROK" stands for interest credited "SANKC.        |
+|              |                                         | UROK" sanction interest if negative balance        |
+|              |                                         | "SIPO" stands for household "DUCHOD" stands        |
+|              |                                         | for old-age pension "UVER" stands for loan payment |
+| =bank=       | bank of the partner                     | each bank has unique two-letter code               |
+| =account=    | account of the partner                  |                                                    |
+
+*** Loan                                                           :ignore:
+#+CAPTION: Tabla describiendo las columnas de la relación =loan=, contenida en el archivo =loan.asc=.
+| item         | meaning                        | remark                                                |
+|--------------+--------------------------------+-------------------------------------------------------|
+| =loan_id=    | record identifier              |                                                       |
+| =account_id= | identification of the account  |                                                       |
+| =date=       | date when the loan was granted | in the form YYMMDD                                    |
+| =amount=     | amount of money                |                                                       |
+| =duration=   | duration of the loan           |                                                       |
+| =payments=   | monthly payments               |                                                       |
+| =status=     | status of paying off the loan  | 'A' stands for contract finished, no problems,        |
+|              |                                | 'B' stands                                            |
+|              |                                | for contract finished, loan not payed, 'C' stands for |
+|              |                                | running contract, OK so far, 'D' stands for running   |
+|              |                                | contract, client in debt                              |
+
+*** Card                                                           :ignore:
+#+CAPTION: Tabla describiendo las columnas de la relación =card=, contenida en el archivo =card.asc=.
+| item      | meaning                   | remark                                          |
+|-----------+---------------------------+-------------------------------------------------|
+| =card_id= | record identifier         |                                                 |
+| =disp_id= | disposition to an account |                                                 |
+| =type=    | type of card              | possible values are "junior", "classic", "gold" |
+| =issued=  | issue date                | in the form YYMMDD                              |
+
+*** District                                                       :ignore:
+
+#+CAPTION: Tabla describiendo las columnas de la relación =demographic=, contenida en el archivo =district.asc=.
+| item  | meaning                                          | remark        |
+|-------+--------------------------------------------------+---------------|
+| =A1=  | =district_id=                                    | district code |
+| =A2=  | district name                                    |               |
+| =A3=  | region                                           |               |
+| =A4=  | no. of inhabitants                               |               |
+| =A5=  | no. of municipalities with inhabitants < 499     |               |
+| =A6=  | no. of municipalities with inhabitants 500-1999  |               |
+| =A7=  | no. of municipalities with inhabitants 2000-9999 |               |
+| =A8=  | no. of municipalities with inhabitants >10000    |               |
+| =A9=  | no. of cities                                    |               |
+| =A10= | ratio of urban inhabitants                       |               |
+| =A11= | average salary                                   |               |
+| =A12= | unemploymant rate '95                            |               |
+| =A13= | unemploymant rate '96                            |               |
+| =A14= | no. of enterpreneurs per 1000 inhabitants        |               |
+| =A15= | no. of commited crimes '95                       |               |
+| =A16= | no. of commited crimes '96                       |               |
+
+
+* Importar/Cargar los datos
+:PROPERTIES:
+:CUSTOM_ID: ingest
+:END:
+
+*** sqlite
+Para jugar con estos datos usaremos una base de datos =sqlite= a la
+que llamaremos =berka.db=
+
+Activamos el modo =csv= en =sqlite=.
+
+#+begin_src  sqlite :db berka.db :dir ~/tmp/berka
+.mode csv
+#+end_src
+
+#+RESULTS:
+
+Esto le indica al cliente de =sqlite= que interprete el archivo de
+entrada como un  archivo csv.
+
+Luego de descomprimir el archivo =data_berka.zip=, podemos usar =head=
+en uno de los archivos para ver su contenido:
+
+#+begin_src shell :dir ~/tmp/berka :results org
+head account.asc
+#+end_src
+
+#+RESULTS:
+#+begin_src org
+"account_id";"district_id";"frequency";"date"
+576;55;"POPLATEK MESICNE";930101
+3818;74;"POPLATEK MESICNE";930101
+704;55;"POPLATEK MESICNE";930101
+2378;16;"POPLATEK MESICNE";930101
+2632;24;"POPLATEK MESICNE";930102
+1972;77;"POPLATEK MESICNE";930102
+1539;1;"POPLATEK PO OBRATU";930103
+793;47;"POPLATEK MESICNE";930103
+2484;74;"POPLATEK MESICNE";930103
+#+end_src
+
+Los archivos tienen como separador =";"=. Debemos indicarle esa
+información a =sqlite=
+
+#+begin_src sqlite :db berka.db :dir ~/tmp/berka
+.separator ";"
+#+end_src
+
+#+RESULTS:
+
+Acto seguido importemos el archivo =client.asc=. Nota que lo estoy
+guardando a una tabla llamada =clients=, si en plural.
+
+#+begin_src sqlite :db berka.db :dir ~/tmp/berka
+.import client.asc clients
+#+end_src
+
+#+RESULTS:
+
+Podemos ver que la tabla está ahí con el comando =.tables=
+
+#+begin_src sqlite :db berka.db :dir ~/tmp/berka
+.tables
+#+end_src
+
+#+RESULTS:
+: clients
+
+Y su esquema con =.schema=
+
+#+begin_src sqlite  :db berka.db :dir ~/tmp/berka :results org
+.schema clients
+#+end_src
+
+#+RESULTS:
+#+begin_src org
+CREATE TABLE clients(
+  "client_id"";""birth_number"";""district_id" TEXT
+);
+#+end_src
+
+
+:EXERCISE:
+#+begin_exercise
+Importa las tablas restantes
+#+end_exercise
+:END:
+
+:TEACHERONLY:
+
+#+begin_src shell :dir ~/tmp/berka
+for table in *.asc
+do
+    echo "Importing ${table}"
+    sqlite3 -separator ";" -cmd ".import ${table} ${table%.*}s" berka.db
+done
+#+end_src
+
+#+RESULTS:
+| Importing | account.asc  |
+| Importing | card.asc     |
+| Importing | client.asc   |
+| Importing | disp.asc     |
+| Importing | district.asc |
+| Importing | loan.asc     |
+| Importing | order.asc    |
+| Importing | trans.asc    |
+
+#+begin_src sqlite :db berka.db :dir ~/tmp/berka
+.tables
+#+end_src
+
+#+RESULTS:
+| accounts   clients    districts  orders |
+| cards      disps      loans      transs |
+
+:END:
+
+*** PostgreSQL
+:PROPERTIES:
+:ID:       b6d57b6f-ceb5-4d78-b95c-b8fd4915e473
+:END:
+Para jugar con estos datos usaremos una base de datos =PostgreSQL= a la
+que llamaremos =berka=.
+
+Siendo el usuario =postgres=,  podemos crear la base de datos como
+antes, o podemos usar los siguientes comandos:
+
+#+begin_src shell :eval never
+createuser berka -D -l -P # Crear el usuario berka
+#+end_src
+
+Las banderas  usadas =-l= (puede hacer login), =-P= (pregunta por la
+contraseña a asignar) y =-D=, le remueve los permisos para crear bases
+de datos.
+
+#+begin_src shell :eval never
+createdb -O berka berka # Crear la bd berka y vuelve dueño al usuario berka
+#+end_src
+
+En la carpeta =berka/sql= está el archivo con el código necesario para
+crear el esquema =raw=.
+
+#+begin_src sql :tangle sql/create_raw_tables.sql :exports none
+create schema if not exists raw;
+
+drop table if exists raw.account;
+
+create table raw.account (
+  "account_id" TEXT,
+  "district_id" TEXT,
+  "frequency" TEXT,
+  "date" TEXT
+);
+
+comment on table raw.account is 'describe las características estáticas de una cuenta';
+
+drop table if exists raw.client;
+
+create table raw.client (
+  "client_id" TEXT,
+  "birth_number" TEXT,
+  "district_id" TEXT
+);
+
+comment on table raw.client is 'describe las características de los clientes';
+
+drop table if exists raw.district;
+
+create table raw.district (
+  "A1" TEXT,
+  "A2" TEXT,
+  "A3" TEXT,
+  "A4" TEXT,
+  "A5" TEXT,
+  "A6" TEXT,
+  "A7" TEXT,
+  "A8" TEXT,
+  "A9" TEXT,
+  "A10" TEXT,
+  "A11" TEXT,
+  "A12" TEXT,
+  "A13" TEXT,
+  "A14" TEXT,
+  "A15" TEXT,
+  "A16" TEXT
+);
+
+comment on table raw.district is 'describe las características demográficas de un distrito';
+
+drop table if exists raw.order;
+
+create table raw.order (
+  "order_id" TEXT,
+  "account_id" TEXT,
+  "bank_to" TEXT,
+  "account_to" TEXT,
+  "amount" TEXT,
+  "k_symbol" TEXT
+);
+
+comment on table raw.order is 'describe una orden de pago';
+
+drop table if exists raw.card;
+
+create table raw.card (
+  "card_id" TEXT,
+  "disp_id" TEXT,
+  "type" TEXT,
+  "issued" TEXT
+);
+
+comment on table raw.card is 'describe las tarjetas de crédito emitidas para las cuentas';
+
+drop table if exists raw.disp;
+
+create table raw.disp (
+  "disp_id" TEXT,
+  "client_id" TEXT,
+  "account_id" TEXT,
+  "type" TEXT
+);
+
+comment on table raw.disp is 'describe la relación entre clientes y cuentas';
+
+drop table if exists raw.loan;
+
+create table raw.loan (
+  "loan_id" TEXT,
+  "account_id" TEXT,
+  "date" TEXT,
+  "amount" TEXT,
+  "duration" TEXT,
+  "payments" TEXT,
+  "status" TEXT
+);
+
+comment on table raw.loan is 'describe préstamos otorgados a cuentas';
+
+drop table if exists raw.trans;
+
+create table raw.trans (
+  "trans_id" TEXT,
+  "account_id" TEXT,
+  "date" TEXT,
+  "type" TEXT,
+  "operation" TEXT,
+  "amount" TEXT,
+  "balance" TEXT,
+  "k_symbol" TEXT,
+  "bank" TEXT,
+  "account" TEXT
+);
+
+comment on table raw.trans is 'describe transacciones en una cuenta';
+#+end_src
+
+En lugar de ejecutar nuestro /pipeline/ desde un archivo =bash=, lo
+haremos con una aplicación en =python=. Lo puedes ver en =berka.py=.
+
+#+begin_src jupyter-python :session sql :eval never :tangle berka.py :exports none
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import psycopg2
+import psycopg2.extras
+
+import sys
+from datetime import timedelta
+
+import click
+
+import io
+
+from dynaconf import settings
+
+from pathlib import Path
+
+@click.group()
+@click.pass_context
+def berka(ctx):
+    ctx.ensure_object(dict)
+    conn = psycopg2.connect(settings.get('PGCONNSTRING'))
+    conn.autocommit = True
+    ctx.obj['conn'] = conn
+
+    queries = {}
+    for sql_file in Path('sql').glob('*.sql'):
+        with open(sql_file,'r') as sql:
+            sql_key = sql_file.stem
+            query = str(sql.read())
+            queries[sql_key] = query
+    ctx.obj['queries'] = queries
+
+    # Cargamos las funciones
+    with ctx.obj['conn'] as conn:
+        cursor = conn.cursor()
+        helpers_sql = ctx.obj['queries'].get('helpers')
+        cursor.execute(helpers_sql)
+
+
+@berka.command()
+@click.pass_context
+def create_schemas(ctx):
+    query = ctx.obj['queries'].get('create_schemas')
+    print(query)
+
+
+@berka.command()
+@click.pass_context
+def create_raw_tables(ctx):
+    query = ctx.obj['queries'].get('create_raw_tables')
+    print(query)
+
+
+@berka.command()
+@click.pass_context
+def load_berka(ctx):
+    conn = ctx.obj['conn']
+    with conn.cursor() as cursor:
+        for data_file in Path(settings.get('BERKADIR')).glob('*.asc'):
+            print(data_file)
+            table = data_file.stem
+            print(table)
+            sql_statement = f"copy raw.{table} from stdin with csv header delimiter as ';'"
+            print(sql_statement)
+            buffer = io.StringIO()
+            with open(data_file,'r') as data:
+                buffer.write(data.read())
+            buffer.seek(0)
+            cursor.copy_expert(sql_statement, file=buffer)
+
+
+@berka.command()
+@click.pass_context
+def to_clean():
+    query = ctx.obj['queries'].get('to_clean')
+    print(query)
+
+
+@berka.command()
+@click.pass_context
+def to_semantic():
+    query = ctx.obj['queries'].get('to_semantic')
+    print(query)
+
+
+@berka.command()
+@click.pass_context
+def create_features():
+    query = ctx.obj['queries'].get('create_features')
+    print(query)
+
+
+if __name__ == '__main__':
+    berka()
+#+end_src
+
+:EXERCISE:
+#+begin_exercise
+- Crea la estructura de directorios recomendada en este curso para =berka=
+- Agrega logging al archivo =berka.py=
+- Crea el archivo =create_schemas.sql= en la carpeta =sql=
+- Completa las funciones =create_schemas= y =create_raw_tables= en archivo =berka.py=
+#+end_exercise
+:END:
+
+
+:EXERCISE:
+#+begin_exercise
+- Crea el archivo =to_clean.sql=, en él:
+  - Arregla los nombres de las tablas (en plural)
+  - Arregla los nombres de los identificadores (en singular)
+  - Crea los catálogos correspondientes (ve el apéndice)
+  - Crea las columnas faltantes (=sexo=, =edad= o =fecha_nacimiento=)
+- Completa la función =to_clean= en archivo =berka.py=
+#+end_exercise
+:END:
+
+* Helpers
+:PROPERTIES:
+:ID:       859efd89-4a8e-493a-b61f-ebd970939710
+:END:
+
+#+begin_src sql :tangle sql/helpers.sql :results none
+create or replace function fix_date
+  (
+    bad_date text
+  )
+returns date
+language sql
+as $$
+select to_date(format('19%s', bad_date), 'YYYYMMDD') as date_fixed;
+$$;
+
+create or replace function fix_int
+  (
+    bad_number text
+  )
+returns integer
+language sql
+as $$
+select case when btrim(bad_number) = '?' then NULL::integer
+else bad_number::integer end as int_fixed;
+$$;
+
+create or replace function fix_numeric
+  (
+    bad_number text
+  )
+returns numeric(10,2)
+language sql
+as $$
+select case when btrim(bad_number) = '?' then NULL::numeric(10,2)
+else bad_number::numeric(10,2) end as numeric_fixed;
+$$;
+#+end_src
+
+* Clean
+:PROPERTIES:
+:ID:       5c861910-bc35-4e3a-92f2-da268d0c5cb7
+:END:
+
+#+begin_src sql :tangle sql/to_clean.sql :results none :noweb yes :exports none
+\echo 'Berka(clean)'
+\echo 'Programación para Ciencia de Datos'
+\echo 'Adolfo De Unánue <unanue@itam.mx>'
+\set VERBOSITY terse
+\set ON_ERROR_STOP true
+
+do language plpgsql $$ declare
+    exc_message text;
+    exc_context text;
+    exc_detail text;
+begin
+
+  do $clean$ begin
+
+   set search_path = clean, public;
+
+  raise notice 'populating clients';
+  <<clean-clients>>
+
+  raise notice 'populating accounts';
+  <<clean-accounts>>
+
+  raise notice 'populating dispositions';
+  <<clean-dispositions>>
+
+  raise notice 'populating credit cards';
+  <<clean-credit-cards>>
+
+  raise notice 'populating loans';
+  <<clean-loans>>
+
+  raise notice 'populating transactions';
+  <<clean-transactions>>
+
+  raise notice 'populating permantent orders';
+  <<clean-permanent-orders>>
+
+  raise notice 'populating districts';
+  <<clean-districts>>
+
+  end $clean$;
+
+exception when others then
+    get stacked diagnostics exc_message = message_text;
+    get stacked diagnostics exc_context = pg_exception_context;
+    get stacked diagnostics exc_detail = pg_exception_detail;
+    raise exception E'\n------\n%\n%\n------\n\nCONTEXT:\n%\n', exc_message, exc_detail, exc_context;
+end $$;
+
+#+end_src
+
+
+#+begin_src sql :tangle no :noweb-ref clean-clients :results none
+drop table if exists clean.clients  cascade;
+
+create table clean.clients as ( --CTAS
+  select
+    client_id::int as client,
+    case when substring(birth_number,3,2)::int > 12 then 'F' else 'M' end as gender,
+    case when substring(birth_number,3,2)::int > 12
+      then
+        to_date(
+          format('19%s%s%s',
+                 substring(birth_number,1,2),
+                 lpad((substring(birth_number,3,2)::int - 50)::varchar, 2,'0'),
+                 (substring(birth_number,5,2))
+          ),
+          'YYYYMMDD')
+    else
+      to_date(format('19%s',birth_number), 'YYYYMMDD')
+    end as bod,
+    district_id::int as district
+    from raw.client
+  );
+
+create index clean_clients_client_ix on clean.clients (client);
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-loans :results none
+drop table if exists clean.loans  cascade;
+
+create table clean.loans as (
+  select
+    loan_id::integer as loan,
+    account_id::integer as account,
+    fix_date(date) as date,
+    amount::numeric(10,2) as amount,
+    format('P%sM', duration)::interval as duration,
+    payments::numeric(10,2) as monthly_payment,
+    btrim(lower(status)) as status
+from raw.loan
+);
+
+create index clean_loans_loan_ix on clean.loans (loan);
+create index clean_loans_account_ix on clean.loans (account);
+create index clean_loans_account_loan_ix on clean.loans (account, loan);
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-accounts :results none
+drop table if exists clean.accounts cascade;
+
+create table clean.accounts as (
+  select
+    account_id::integer as account,
+    district_id::integer as district,
+    fix_date(date) as date,
+    case when lower(frequency) = 'poplatek mesicne' then 'monthly'
+    when lower(frequency) = 'poplatek tydne' then 'weekly'
+    when lower(frequency) = 'poplatek po obratu' then 'after transaction'
+    end as frequency
+    from raw.account
+);
+
+create index clean_accounts_loan_ix on clean.accounts (account);
+create index clean_accounts_district_ix on clean.accounts (district);
+create index clean_accounts_account_district_ix on clean.accounts (account, district);
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-credit-cards :results none
+drop table if exists clean.credit_cards cascade;
+
+create table clean.credit_cards as (
+  select
+    card_id::integer as credit_card,
+    disp_id::integer as disposition,
+    lower(btrim(type)) as type,
+    fix_date(issued) as issued
+    from raw.card
+);
+
+create index clean_credit_cards_credit_card_ix on clean.credit_cards (credit_card);
+create index clean_credit_cards_disposition_ix on clean.credit_cards (disposition);
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-districts :results none
+drop table if exists clean.districts cascade;
+
+create table clean.districts as (
+  select
+    "A1"::integer as district,
+    lower(btrim("A2")) as name,
+    lower(btrim("A3")) as region,
+    fix_int("A4") as inhabitans,
+    fix_int("A5") as small_municipalities,
+    fix_int("A6") as medium_municipalities,
+    fix_int("A7") as large_municipalities,
+    fix_int("A8") as huge_municipalities,
+    fix_int("A9") as cities,
+    fix_numeric("A10") as urban_inhabitans_ratio,
+    fix_numeric("A11") as average_salary,
+    fix_numeric("A12") as unemployment_rate_1995,
+    fix_numeric("A13") as unemployment_rate_1996,
+    fix_int("A14") as entrepreneurs_per_thousand_inhabitans,
+    fix_int("A15") as commited_crimes_1995,
+    fix_int("A16") as commited_crimes_1996
+    from raw.district
+);
+
+create index clean_districts_district_ix on clean.districts(district);
+
+comment on column clean.districts.small_municipalities is '< 499 inhabitans';
+comment on column clean.districts.medium_municipalities is 'between 500 and 1,999 inhabitans';
+comment on column clean.districts.large_municipalities is 'between 2,000 and 9,999 inhabitans';
+comment on column clean.districts.huge_municipalities is '> 10,000 inhabitans';
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-dispositions :results none
+drop table if exists clean.dispositions cascade;
+
+create table clean.dispositions as (
+  select
+    disp_id::integer as disposition,
+    client_id::integer as client,
+    account_id::integer as account,
+    lower(btrim(type)) as type
+    from raw.disp
+);
+
+create index clean_dispositions_disposition_ix on clean.dispositions(disposition);
+create index clean_dispositions_client_ix on clean.dispositions(client);
+create index clean_dispositions_account_ix on clean.dispositions(account);
+
+#+end_src
+
+#+begin_src sql :tangle no :noweb-ref clean-permanent-orders :results none
+drop table if exists clean.permanent_orders cascade;
+
+create table clean.permanent_orders as (
+  select
+    order_id::integer as  order,
+    account_id::integer as issuer,
+    lower(btrim(bank_to)) as bank,
+    account_to::integer as recipient,
+    fix_numeric(amount) as amount,
+    case lower(btrim(k_symbol))
+    when 'pojistne' then 'insurance payment'
+    when 'sipo' then 'household'
+    when 'leasing'  then 'leasing'
+    when 'uver' then 'loan payment'
+    end as k_symbol
+    from raw."order"
+);
+
+create index clean_permanent_orders_issuer_ix on clean.permanent_orders(issuer);
+create index clean_permanent_orders_recipient_ix on clean.permanent_orders(recipient);
+#+end_src
+
+
+#+begin_src sql :tangle no :noweb-ref clean-transactions :results none
+drop table if exists clean.transactions cascade;
+
+create table clean.transactions as (
+  select
+    trans_id::integer as transaction,
+    account_id::integer as account,
+    fix_date(date) as date,
+    case  lower(btrim(type))
+    when 'prijem' then 'credit'
+    when 'vydaj' then 'withdraw'
+    else 'withdraw' end as type, /* Los valores faltantes tienen "Withdrawal in Cash" en la columna de operation */
+    case lower(btrim(operation))
+    when 'vyber kartou' then 'credit card withdrawal'
+    when 'vklad' then 'credit in cash'
+    when 'prevod z uctu' then 'collection from another bank'
+    when 'vyber' then 'withdrawal in cash'
+    when 'prevod na ucet' then 'remittance to another bank' end as mode,
+    fix_numeric(amount) as amount,
+    fix_numeric(balance) as balance,
+    case lower(btrim(k_symbol)) when 'pojistne' then 'insurance payment'
+    when 'sluzby' then 'payment for statement'
+    when 'urok' then 'interest credited'
+    when 'sankc.urok' then 'sanction interest'
+    when 'sipo' then 'household'
+    when 'duchod' then 'old-age pension'
+    when 'uver' then 'loan payment' end as k_symbol,
+    lower(btrim(bank)) as partner_bank,
+    account::integer as partner_account
+    from raw.trans
+);
+
+create index clean_transactions_transaction_ix on clean.transactions(transaction);
+
+create index clean_transactions_account_ix on clean.transactions(account);
+#+end_src
+
+* Semantic
+:PROPERTIES:
+:ID:       81d92156-0a1e-4d9f-b15c-1e7aefc8261b
+:END:
+
+#+begin_src sql :tangle sql/to_semantic.sql :results none :noweb yes :exports none
+\echo 'Berka(semantic)'
+\echo 'Programación para Ciencia de Datos'
+\echo 'Adolfo De Unánue <unanue@itam.mx>'
+\set VERBOSITY terse
+\set ON_ERROR_STOP true
+
+do language plpgsql $$ declare
+    exc_message text;
+    exc_context text;
+    exc_detail text;
+begin
+
+  do $semantic$ begin
+
+  set search_path = semantic, public;
+
+  <<semantic-entities>>
+
+  <<semantic-events>>
+
+  end $semantic$;
+
+  set search_path = semantic, public;
+exception when others then
+    get stacked diagnostics exc_message = message_text;
+    get stacked diagnostics exc_context = pg_exception_context;
+    get stacked diagnostics exc_detail = pg_exception_detail;
+    raise exception E'\n------\n%\n%\n------\n\nCONTEXT:\n%\n', exc_message, exc_detail, exc_context;
+end $$;
+
+#+end_src
+
+
+#+begin_src sql :tangle no :noweb-ref semantic-entities :results none
+raise notice 'populating entities';
+drop table if exists entities;
+
+create table if not exists entities as (
+  select
+    client,
+    gender,
+    bod,
+    clients.district,
+    first_value(date)
+      over (partition by client, account order by date asc) as since
+    from
+        clean.clients
+        left join clean.dispositions using(client)
+        left join clean.accounts using(account)
+);
+
+create index semantic_entities_client_ix on semantic.entities(client);
+create index semantic_entities_since_ix on semantic.entities(since);
+create index semantic_entities_bod_ix on semantic.entities(bod);
+#+end_src
+
+
+#+begin_src sql :tangle no :noweb-ref semantic-events :results none
+raise notice 'defining event types';
+drop type if exists event_type cascade;
+            create type event_type as enum (
+              'open account',  'loan granted', 'card issued',
+              'loan payment', 'old-age pension',
+              'insurance payment', 'interest credited',
+              'payment for statement', 'household', 'credit in cash',
+              'collection from another bank', 'credit card withdrawal',
+              'remittance to another bank', 'withdrawal in cash');
+
+raise notice 'defining events schema';
+drop table if exists events;
+create table if not exists events (
+  event serial,
+  client integer,
+  account integer,
+  type event_type,
+  date date,
+  attributes jsonb
+);
+
+raise notice 'populating events';
+insert into events (client, account, type, date)
+            (
+              select
+                client,
+                account,
+                'open account'::event_type,
+                date
+                from clean.accounts
+                       inner join clean.dispositions using(account)
+            )
+            union
+            (
+              select
+                client,
+                account,
+                'loan granted'::event_type,
+                date
+                from clean.loans
+                       inner join clean.dispositions using(account)
+            )
+            union
+            (
+              select
+                client,
+                account,
+                'card issued'::event_type,
+                issued as date
+                from  clean.credit_cards
+                        inner join clean.dispositions using(disposition)
+            )
+            union
+            (
+              select
+                client,
+                account,
+                coalesce(k_symbol, mode)::event_type,
+                date
+               from clean.transactions
+                      inner join clean.dispositions using(account)
+            )
+            ;
+
+create index semantic_events_event_ix on semantic.events(event);
+create index semantic_events_client_ix on semantic.events(client);
+create index semantic_events_client_account_ix on semantic.events(client, account);
+create index semantic_events_date_ix on semantic.events(date);
+create index semantic_events_type_ix on semantic.events(type);
+create index semantic_events_type_loan_granted_ix on semantic.events(type) where type = 'loan granted';
+#+end_src
+
+
+* Labels, cohorts, features
+#+begin_src sql :tangle no
+select
+max(date), min(date),
+age(max(date), min(date)) as time_span
+from semantic.events;
+#+end_src
+
+#+RESULTS:
+|        max |        min | time_span                  |
+|------------+------------+---------------------------|
+| 1998-12-31 | 1993-01-01 | @ 5 years 11 mons 30 days |
+
+**  as of date
+#+begin_src sql
+select
+ generate_series(min(date), max(date), '6 month') as as_of_date
+from
+semantic.events;
+#+end_src
+
+#+RESULTS:
+| as_of_date               |
+|------------------------|
+| 1993-01-01 00:00:00+00 |
+| 1993-07-01 00:00:00+00 |
+| 1994-01-01 00:00:00+00 |
+| 1994-07-01 00:00:00+00 |
+| 1995-01-01 00:00:00+00 |
+| 1995-07-01 00:00:00+00 |
+| 1996-01-01 00:00:00+00 |
+| 1996-07-01 00:00:00+00 |
+| 1997-01-01 00:00:00+00 |
+| 1997-07-01 00:00:00+00 |
+| 1998-01-01 00:00:00+00 |
+| 1998-07-01 00:00:00+00 |
+
+** Cohort
+:PROPERTIES:
+:ID:       479a5387-afee-4a9f-8b6f-8f59076990b7
+:END:
+
+Definiremos como clientes /nuevos/ aquellos que tienen menos de un año
+de haber abierto su cuenta,
+
+#+begin_src sql :tangle sql/cohort_new_clients.sql
+
+drop schema if exists cohorts;
+create schema if not exists cohorts;
+
+drop table if exists cohorts.new_clients;
+create table if not exists cohorts.new_clients as (
+with as_of_dates as (
+  select
+    generate_series(min(date), max(date), '6 month') as as_of_date
+    from
+        semantic.events
+),
+
+  new_clients as (
+    select
+      client,
+      gender,
+      bod,
+      district,
+      since,
+      aod.as_of_date::date,
+      daterange(
+        (aod.as_of_date - interval '1 year')::date,
+        aod.as_of_date::date)
+        @> since as "new?"
+      from  (
+        select
+          as_of_date
+          from
+              as_of_dates
+      ) as aod
+              left join lateral (
+                select *, age(since, as_of_date)
+                  from semantic.entities
+              ) as t2 on true
+  )
+
+select
+  -- as_of_date, count(*)
+  *
+  from
+      new_clients
+ where "new?" is true
+ -- group by 1
+)
+#+end_src
+
+#+RESULTS:
+|   |
+
+** Outcome
+
+El /outcome/ es el resultado de un evento: ¿Los clientes reciben un préstamo?
+
+#+begin_src sql
+select
+client,
+date as event_date,
+type = 'loan granted' as outcome
+from
+semantic.events
+limit 10
+#+end_src
+
+#+RESULTS:
+| client |  event_date | outcome |
+|--------+------------+---------|
+|      1 | 1995-03-24 | f       |
+|      1 | 1995-04-30 | f       |
+|      1 | 1995-05-31 | f       |
+|      1 | 1995-06-30 | f       |
+|      1 | 1995-07-31 | f       |
+|      1 | 1995-08-31 | f       |
+|      1 | 1995-09-30 | f       |
+|      1 | 1995-10-31 | f       |
+|      1 | 1995-11-30 | f       |
+|      1 | 1995-12-31 | f       |
+
+** Label
+:PROPERTIES:
+:ID:       9b7d3272-9e0b-4243-822c-43803f1372dc
+:END:
+
+¿Los clientes /nuevos/ pedirán un préstamo en los siguientes *tres meses* del =as_of_date=?
+
+#+begin_src sql :tangle sql/label_loan_granted.sql :results none
+create schema if not exists labels;
+
+drop table if exists labels.loan_granted_3m;
+create table if not exists labels.loan_granted_3m as (
+
+with outcomes as (
+  select
+    as_of_date,
+    client,
+    date as event_date,
+    type = 'loan granted' as outcome
+    from
+        cohorts.new_clients
+        left join semantic.events using(client)
+)
+
+select
+  as_of_date
+  , client
+-- , array_agg(event_date::date order by event_date asc) as event_dates
+-- , array_agg(outcome order by event_date asc) as outcomes
+  , bool_or(outcome)::integer as label
+  from outcomes
+ where
+daterange(as_of_date::date,(as_of_date + interval '3 months')::date) @>  event_date
+--and as_of_date = '1994-01-01'
+ group by as_of_date, client
+);
+
+create index  labels_loan_granted_3m_client_ix on labels.loan_granted_3m(client);
+create index  labels_loan_granted_3m_as_of_date_ix on labels.loan_granted_3m(as_of_date);
+create index  labels_loan_granted_3m_client_as_of_date_ix on labels.loan_granted_3m(client, as_of_date);
+#+end_src
+
+** Features
+
+*** Not aggregated
+:PROPERTIES:
+:ID:       78a06f76-00c9-42db-a9af-4182012a123f
+:END:
+
+#+begin_src sql :tangle sql/features_entity_derived.sql :results none
+create schema if not exists features;
+
+drop table if exists features.entity_derived;
+
+create table if not exists features.entity_derived as (
+select * from
+(
+  select
+    as_of_date,
+    client
+    from
+        labels.loan_granted_3m
+) as aod
+             left join lateral ( -- for loop
+               select
+                 extract(year from age(as_of_date, bod)) as age
+                 , extract(month from age(as_of_date, since)) as antiquity
+                 from semantic.entities
+                where aod.client = client
+             ) as t2
+                 on true
+);
+
+create index features_entity_derived_client_ix on features.entity_derived(client);
+create index features_entity_derived_as_of_date_ix on features.entity_derived(as_of_date);
+create index features_entity_derived_client_as_of_date_ix on features.entity_derived(client, as_of_date);
+#+end_src
+
+
+*** Agregated to =as_of_date=
+:PROPERTIES:
+:ID:       cf017aa8-21d0-4d32-9fe0-42d8dd264a2d
+:END:
+
+#+begin_src sql :tangle sql/features_aggregated.sql :results none
+create schema if not exists features;
+
+drop table if exists features.aggregated;
+
+create table if not exists features.aggregated as (
+select * from
+(
+  select
+    as_of_date,
+    client
+    from
+        labels.loan_granted_3m
+) as aod
+             left join lateral ( -- for loop
+               select
+                 count(*) filter(where daterange((aod.as_of_date - interval '1 month')::date, aod.as_of_date::date) @> date) as "COUNT(*, @1M)",
+                 count(*) filter(where daterange((aod.as_of_date - interval '3 month')::date, aod.as_of_date::date) @> date) as "COUNT(*, @3M)",
+                 count(*) filter(where daterange((aod.as_of_date - interval '1 month')::date, aod.as_of_date::date) @> date and type='withdrawal in cash')  as "COUNT(withdrawal in cash, @1M)",
+count(*) as "COUNT(*)"
+                 from semantic.events
+                where aod.client = client
+             ) as t2
+                 on true
+);
+create index features_aggregated_as_of_date_ix on features.aggregated(as_of_date);
+create index features_aggregated_client_ix on features.aggregated(client);
+create index features_aggregated_client_as_of_date_ix on features.aggregated(client, as_of_date);
+#+end_src
+
+#+RESULTS:
+|   as_of_date | client | COUNT(*, @1M) | COUNT(*, @3M) | COUNT(withdrawal in cash, @1M) | COUNT(*) |
+|------------+--------+---------------+---------------+--------------------------------+----------|
+| 1993-07-01 |      2 |             3 |             9 |                              1 |      476 |
+| 1993-07-01 |      3 |             3 |             9 |                              1 |      476 |
+| 1993-07-01 |     12 |             5 |            13 |                              1 |      355 |
+| 1993-07-01 |     24 |             1 |             3 |                              0 |      323 |
+| 1993-07-01 |     29 |             3 |             5 |                              1 |      366 |
+| 1993-07-01 |     52 |             1 |             3 |                              0 |      316 |
+| 1993-07-01 |     72 |             1 |             3 |                              0 |      357 |
+| 1993-07-01 |     98 |             3 |             8 |                              1 |      428 |
+| 1993-07-01 |     99 |             3 |             8 |                              1 |      428 |
+| 1993-07-01 |    102 |             2 |             6 |                              0 |      405 |
