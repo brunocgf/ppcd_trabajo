@@ -97,3 +97,37 @@ done
 # Quitar "_id" y mantener el identificador en singular (controversial)
 # ej: trans -> "transations", "trans_id" -> "transaction", "client_id" -> "client"
 # Arreglar variables categóricas, poner buenos nombres, etc.
+# Quitar espacios
+
+\df #ver funciones
+\i sql/helpers.sql
+
+# Para ejecutar el codigo de clean
+\i sql/helpers.sql #ó
+psql service=berka -f .sql/to_clean
+
+# SEMANTIC
+
+# |event | entity | type | date | attr |
+
+# Orden SQL
+| 5 | SELECT |
+| 6 | DISTINCT column AGG_FUN(column or expression) |
+| 1 | FROM my_table |
+| 1 | JOIN another_table |
+| 1 | ON mytable.columns = anthe_table.COLUMN |
+| 2 | WHERE constrain_expression |
+| 3 | GROUP BY column |
+| 4 | HAVING constraint_expression |
+| 7 | ORDER BY column ASC/DESC |
+| 8 | LIMIT coun
+
+# Filter
+
+select
+	count(*) as total,
+	count(*) filter(where type = 'PRIJEM') as num_prijem
+	count(*) filter(where type = 'YBER') as num_yber
+from raw.trans;
+
+

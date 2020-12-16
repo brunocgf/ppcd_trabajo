@@ -1,4 +1,4 @@
-\echo 'Berka(cleaned)'
+\echo 'Berka(clean)'
 \echo 'Programación para Ciencia de Datos'
 \echo 'Adolfo De Unánue <unanue@itam.mx>'
 \set VERBOSITY terse
@@ -10,14 +10,14 @@ do language plpgsql $$ declare
     exc_detail text;
 begin
 
-  do $cleaned$ begin
+  do $clean$ begin
 
-   set search_path = cleaned, public;
+   set search_path = clean, public;
 
   raise notice 'populating clients';
-  drop table if exists cleaned.clients  cascade;
-  
-  create table cleaned.clients as (
+  drop table if exists clean.clients  cascade;
+
+  create table clean.clients as ( --CTAS
     select
       client_id::int as client,
       case when substring(birth_number,3,2)::int > 12 then 'F' else 'M' end as gender,
@@ -36,13 +36,13 @@ begin
       district_id::int as district
       from raw.client
     );
-  
-  create index cleaned_clients_client_ix on cleaned.clients (client);
+
+  create index clean_clients_client_ix on clean.clients (client);
 
   raise notice 'populating accounts';
-  drop table if exists cleaned.accounts cascade;
-  
-  create table cleaned.accounts as (
+  drop table if exists clean.accounts cascade;
+
+  create table clean.accounts as (
     select
       account_id::integer as account,
       district_id::integer as district,
@@ -53,15 +53,15 @@ begin
       end as frequency
       from raw.account
   );
-  
-  create index cleaned_accounts_loan_ix on cleaned.accounts (account);
-  create index cleaned_accounts_district_ix on cleaned.accounts (district);
-  create index cleaned_accounts_account_district_ix on cleaned.accounts (account, district);
+
+  create index clean_accounts_loan_ix on clean.accounts (account);
+  create index clean_accounts_district_ix on clean.accounts (district);
+  create index clean_accounts_account_district_ix on clean.accounts (account, district);
 
   raise notice 'populating dispositions';
-  drop table if exists cleaned.dispositions cascade;
-  
-  create table cleaned.dispositions as (
+  drop table if exists clean.dispositions cascade;
+
+  create table clean.dispositions as (
     select
       disp_id::integer as disposition,
       client_id::integer as client,
@@ -69,16 +69,16 @@ begin
       lower(btrim(type)) as type
       from raw.disp
   );
-  
-  create index cleaned_dispositions_disposition_ix on cleaned.dispositions(disposition);
-  create index cleaned_dispositions_client_ix on cleaned.dispositions(client);
-  create index cleaned_dispositions_account_ix on cleaned.dispositions(account);
-  
+
+  create index clean_dispositions_disposition_ix on clean.dispositions(disposition);
+  create index clean_dispositions_client_ix on clean.dispositions(client);
+  create index clean_dispositions_account_ix on clean.dispositions(account);
+
 
   raise notice 'populating credit cards';
-  drop table if exists cleaned.credit_cards cascade;
-  
-  create table cleaned.credit_cards as (
+  drop table if exists clean.credit_cards cascade;
+
+  create table clean.credit_cards as (
     select
       card_id::integer as credit_card,
       disp_id::integer as disposition,
@@ -86,14 +86,14 @@ begin
       fix_date(issued) as issued
       from raw.card
   );
-  
-  create index cleaned_credit_cards_credit_card_ix on cleaned.credit_cards (credit_card);
-  create index cleaned_credit_cards_disposition_ix on cleaned.credit_cards (disposition);
+
+  create index clean_credit_cards_credit_card_ix on clean.credit_cards (credit_card);
+  create index clean_credit_cards_disposition_ix on clean.credit_cards (disposition);
 
   raise notice 'populating loans';
-  drop table if exists cleaned.loans  cascade;
-  
-  create table cleaned.loans as (
+  drop table if exists clean.loans  cascade;
+
+  create table clean.loans as (
     select
       loan_id::integer as loan,
       account_id::integer as account,
@@ -104,15 +104,15 @@ begin
       btrim(lower(status)) as status
   from raw.loan
   );
-  
-  create index cleaned_loans_loan_ix on cleaned.loans (loan);
-  create index cleaned_loans_account_ix on cleaned.loans (account);
-  create index cleaned_loans_account_loan_ix on cleaned.loans (account, loan);
+
+  create index clean_loans_loan_ix on clean.loans (loan);
+  create index clean_loans_account_ix on clean.loans (account);
+  create index clean_loans_account_loan_ix on clean.loans (account, loan);
 
   raise notice 'populating transactions';
-  drop table if exists cleaned.transactions cascade;
-  
-  create table cleaned.transactions as (
+  drop table if exists clean.transactions cascade;
+
+  create table clean.transactions as (
     select
       trans_id::integer as transaction,
       account_id::integer as account,
@@ -140,15 +140,15 @@ begin
       account::integer as partner_account
       from raw.trans
   );
-  
-  create index cleaned_transactions_transaction_ix on cleaned.transactions(transaction);
-  
-  create index cleaned_transactions_account_ix on cleaned.transactions(account);
+
+  create index clean_transactions_transaction_ix on clean.transactions(transaction);
+
+  create index clean_transactions_account_ix on clean.transactions(account);
 
   raise notice 'populating permantent orders';
-  drop table if exists cleaned.permanent_orders cascade;
-  
-  create table cleaned.permanent_orders as (
+  drop table if exists clean.permanent_orders cascade;
+
+  create table clean.permanent_orders as (
     select
       order_id::integer as  order,
       account_id::integer as issuer,
@@ -163,14 +163,14 @@ begin
       end as k_symbol
       from raw."order"
   );
-  
-  create index cleaned_permanent_orders_issuer_ix on cleaned.permanent_orders(issuer);
-  create index cleaned_permanent_orders_recipient_ix on cleaned.permanent_orders(recipient);
+
+  create index clean_permanent_orders_issuer_ix on clean.permanent_orders(issuer);
+  create index clean_permanent_orders_recipient_ix on clean.permanent_orders(recipient);
 
   raise notice 'populating districts';
-  drop table if exists cleaned.districts cascade;
-  
-  create table cleaned.districts as (
+  drop table if exists clean.districts cascade;
+
+  create table clean.districts as (
     select
       "A1"::integer as district,
       lower(btrim("A2")) as name,
@@ -190,15 +190,15 @@ begin
       fix_int("A16") as commited_crimes_1996
       from raw.district
   );
-  
-  create index cleaned_districts_district_ix on cleaned.districts(district);
-  
-  comment on column cleaned.districts.small_municipalities is '< 499 inhabitans';
-  comment on column cleaned.districts.medium_municipalities is 'between 500 and 1,999 inhabitans';
-  comment on column cleaned.districts.large_municipalities is 'between 2,000 and 9,999 inhabitans';
-  comment on column cleaned.districts.huge_municipalities is '> 10,000 inhabitans';
 
-  end $cleaned$;
+  create index clean_districts_district_ix on clean.districts(district);
+
+  comment on column clean.districts.small_municipalities is '< 499 inhabitans';
+  comment on column clean.districts.medium_municipalities is 'between 500 and 1,999 inhabitans';
+  comment on column clean.districts.large_municipalities is 'between 2,000 and 9,999 inhabitans';
+  comment on column clean.districts.huge_municipalities is '> 10,000 inhabitans';
+
+  end $clean$;
 
 exception when others then
     get stacked diagnostics exc_message = message_text;

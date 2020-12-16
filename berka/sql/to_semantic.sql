@@ -26,9 +26,9 @@ begin
       first_value(date)
         over (partition by client, account order by date asc) as since
       from
-          cleaned.clients
-          left join cleaned.dispositions using(client)
-          left join cleaned.accounts using(account)
+          clean.clients
+          left join clean.dispositions using(client)
+          left join clean.accounts using(account)
   );
   
   create index semantic_entities_client_ix on semantic.entities(client);
@@ -64,8 +64,8 @@ begin
                   account,
                   'open account'::event_type,
                   date
-                  from cleaned.accounts
-                         inner join cleaned.dispositions using(account)
+                  from clean.accounts
+                         inner join clean.dispositions using(account)
               )
               union
               (
@@ -74,8 +74,8 @@ begin
                   account,
                   'loan granted'::event_type,
                   date
-                  from cleaned.loans
-                         inner join cleaned.dispositions using(account)
+                  from clean.loans
+                         inner join clean.dispositions using(account)
               )
               union
               (
@@ -84,8 +84,8 @@ begin
                   account,
                   'card issued'::event_type,
                   issued as date
-                  from  cleaned.credit_cards
-                          inner join cleaned.dispositions using(disposition)
+                  from  clean.credit_cards
+                          inner join clean.dispositions using(disposition)
               )
               union
               (
@@ -94,8 +94,8 @@ begin
                   account,
                   coalesce(k_symbol, mode)::event_type,
                   date
-                 from cleaned.transactions
-                        inner join cleaned.dispositions using(account)
+                 from clean.transactions
+                        inner join clean.dispositions using(account)
               )
               ;
   
